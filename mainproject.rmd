@@ -1,1 +1,109 @@
 library(ggpubr)
+
+
+#текстово анализируем (переменные в основном пока названы от балды, это чуть позже всё подчищу...)
+```{r}
+#текстово анализируем
+tags_joined = full_join(tags, survey_answers, by = c("id" = "tag_id"))
+tags_mean = tags_joined %>% group_by(tag, item_id) %>% summarise(avrScore = mean(score))
+```
+
+```{r}
+tags_mean = tags_mean %>% filter(avrScore >= 4)
+n_distinct(tags_mean$item_id)
+```
+
+```{r}
+library(stopwords)
+stopwords = data.frame(tag=stopwords("en"), stringsAsFactors=FALSE)
+tags_mean = tags_mean %>%
+    anti_join(stopwords)
+```
+
+```{r}
+library(wordcloud2)
+
+avrTags.counts = tags_mean %>%
+    dplyr::count(tag, sort=TRUE) %>% 
+    top_n(50, n)
+
+wordcloud2(data = avrTags.counts)
+```
+
+Получение года выпуска фильма
+```{r}
+library(stringr)
+
+metadata1 <- metadata
+
+# вектор для хранения извлеченного года
+years <- vector("character", length = nrow(metadata1))
+
+# циклом проходимся и получаем год для каждого фильма, сохраняем в вектор
+for (i in 1:nrow(metadata1)) {
+  title <- metadata1$title[i]
+  # задаем шаблон, по которому собираемся искать (который у нас и представлен)
+  year_pattern <- "\\(\\d{4}\\)$"
+  year_match <- str_match(title, year_pattern)
+
+  if (!is.na(year_match)) {
+    # извлекаем год и завершающие символы
+    year_text <- year_match[[1]]
+    trailing_chars <- year_match[[1]]
+
+    # удаляем скобочки и завершающие символы
+    years[i] <- gsub("(\\(|\\))", "", year_text)
+
+    # проверка на то, что в завершающих символах только пробелы
+    if (!all(str_trim(trailing_chars) == "")) {
+      # если нет, то убираем лишнее
+      years[i] <- paste0(years[i])
+    }
+  } else {
+    years[i] <- NA # если не удалось излечь год, присваиваем NA
+  }
+}
+
+# добавление получившегося вектора в столбец
+metadata1$year <- years
+```
+
+
+```{r}
+tags_mean1 = tags_mean
+subtotal <- system2("mystem", c("-c", "-l", "-d"), input = tags_mean1$tag, stdout=TRUE) 
+lemmatized_tags <- str_replace_all(subtotal, "\\{([^}]+?)([?]+)?\\}", "\\1")
+
+tags_mean1 <- cbind(tags_mean1, lemtag = lemmatized_tags)
+```
+
+```{r}
+tags_dtm = tags_mean1 %>%
+  group_by(item_id) %>%
+  dplyr::count(lemtag, sort=TRUE) %>%
+  cast_sparse(item_id, lemtag, n) %>% 
+  as.matrix()
+
+```
+
+
+```{r}
+cos_dist = lsa::cosine(t(tags_dtm))
+```
+
+```{r}
+#sentiment analysis
+bing_dict = get_sentiments("bing")
+afinn_dict = get_sentiments("afinn")
+
+bingtags = tags_mean1 %>% 
+  inner_join(bing_dict, by= c("lemtag" = "word"))
+
+library(ggplot2)
+
+ggplot() +
+  geom_bar(data = bingtags, aes(x = sentiment)) +
+ggtitle("Теги по бину")
+
+```
+
