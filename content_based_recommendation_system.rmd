@@ -27,7 +27,7 @@ data_dirs = metadata %>%
 data_dirs = data_dirs %>% pivot_wider(names_from = directed_sep, values_from = directedBy_v, values_fill = 0)
 
 data_dirs = data_dirs %>% dplyr::select(-avgRating, -starring, -title, -imdbId)
-data = data %>% dplyr::select(-directedBy, -avgRating)
+data = data %>% dplyr::select(-directedBy, -avgRating) # здесь можно убрать -avgRating чтобы он использовался в построении матрицы
 
 data = inner_join(data, data_dirs, by='item_id')
 ```
