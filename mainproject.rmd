@@ -1,28 +1,44 @@
 library(ggpubr)
+библиотеки на всякий случай
+```{r}
+library(dplyr)
+library(tidyr)
+library(stopwords)
+library(stringr)
+library(tidyverse)
+library(tidytext)
+library(igraph)
+library(ggraph)
+library(recommenderlab)
+library(wordcloud2)
+```
 
 
 #текстово анализируем (переменные в основном пока названы от балды, это чуть позже всё подчищу...)
+
+Создали датасет, в котором id фильма, для которого оставлен тег, сами теги и их оценки, и id пользователя, который оставил тег.
 ```{r}
 #текстово анализируем
 tags_joined = full_join(tags, survey_answers, by = c("id" = "tag_id"))
+#у каждого тега по несколько оценок, поэтому группируем по тегу и фильму, находим среднее
 tags_mean = tags_joined %>% group_by(tag, item_id) %>% summarise(avrScore = mean(score))
 ```
 
+Оценка - то, нассколько фильм подходит, я решила, что 4 и больше - "порог достоверности" (может потом в случае чего перевыбрать), получилось 158 значений
 ```{r}
 tags_mean = tags_mean %>% filter(avrScore >= 4)
 n_distinct(tags_mean$item_id)
 ```
 
+Среди тегов ищем стоп-слова, если вдруг они есть, чтобы не мешали дальше (спойлер - их нет)
 ```{r}
-library(stopwords)
 stopwords = data.frame(tag=stopwords("en"), stringsAsFactors=FALSE)
 tags_mean = tags_mean %>%
     anti_join(stopwords)
 ```
 
+Строим по ним облако слов, чтобы понимать, какие встречаются чаще всего
 ```{r}
-library(wordcloud2)
-
 avrTags.counts = tags_mean %>%
     dplyr::count(tag, sort=TRUE) %>% 
     top_n(50, n)
@@ -32,8 +48,6 @@ wordcloud2(data = avrTags.counts)
 
 Получение года выпуска фильма
 ```{r}
-library(stringr)
-
 metadata1 <- metadata
 
 # вектор для хранения извлеченного года
@@ -68,7 +82,7 @@ for (i in 1:nrow(metadata1)) {
 metadata1$year <- years
 ```
 
-
+Лемматизируем (вдруг что-т можно привести к изначальной форме, спойлер - ничего нового)
 ```{r}
 tags_mean1 = tags_mean
 subtotal <- system2("mystem", c("-c", "-l", "-d"), input = tags_mean1$tag, stdout=TRUE) 
@@ -76,7 +90,7 @@ lemmatized_tags <- str_replace_all(subtotal, "\\{([^}]+?)([?]+)?\\}", "\\1")
 
 tags_mean1 <- cbind(tags_mean1, lemtag = lemmatized_tags)
 ```
-
+Создание матрицы и смотрим, какие фильмы и какие теги в них встречаются
 ```{r}
 tags_dtm = tags_mean1 %>%
   group_by(item_id) %>%
@@ -86,10 +100,14 @@ tags_dtm = tags_mean1 %>%
 
 ```
 
-
+По косинусу угла смотрим, какие фильмы похожи (основываясь на тегах)
 ```{r}
 cos_dist = lsa::cosine(t(tags_dtm))
 ```
+
+
+Проводим сентимент-анализ, используя словари bing и afinn
+
 
 ```{r}
 #sentiment analysis
@@ -106,4 +124,61 @@ ggplot() +
 ggtitle("Теги по бину")
 
 ```
+Визуализируем и видим, что негативного больше позитивного
+
+По другому словарю тоже строим, -5 самое негативное, +5 самое позитивное
+```{r}
+afinntags = tags_mean1 %>% 
+  inner_join(afinn_dict, by= c("lemtag" = "word"))
+
+ggplot() +
+  geom_bar(data = afinntags, aes(x = value)) +
+ggtitle("Теги по афину")
+```
+
+
+Скачиваем словарь, в котором эмоции распианы поподробнее, чтобы получить более настроенчиские данные
+
+```{r}
+nrc_dict = get_sentiments("nrc")
+tags_nrc = tags_mean1 %>% 
+  inner_join(nrc_dict, by= c("lemtag" = "word"))
+```
+
+Загружаем датасет Imdb, в котором есть часть наших фильмов (в итоге их оказалось 105), чтобы получить жанры
+
+```{r}
+data_path = "~/imdb_top_1000.csv"
+genres <- read.csv(data_path)
+genres = genres %>% select(Series_Title, Genre)
+genres <- rename(genres, title = Series_Title)
+
+#избавляемся от лишних знаков в названиях, чтобы понятно всё соотносилось
+regex <- "\\(.*\\)"
+new_titles <- gsub(regex, "", metadata1$title)
+metadata1$title <- gsub("\\(.*\\)", "", new_titles)
+metadata1$title <- str_trim(metadata1$title) 
+
+# создадим новый столбец 'genre' в 'metadata1'
+metadata1$genre <- NA
+
+# пройдемся по каждому названию фильма в 'genres'
+for (i in 1:nrow(genres)) {
+  # получим текущее название фильма из 'genres'
+  current_title <- genres$title[i]
+
+  # проверим, есть ли это название в 'metadata1'
+  if (any(metadata1$title == current_title)) {
+    # получим индекс совпадающего фильма в 'metadata1'
+    matching_index <- which(metadata1$title == current_title)
+
+    # получим жанр фильма из 'genres'
+    genre <- genres$Genre[i]
+
+    # добавим жанр в 'metadata1' с помощью ifelse()
+    metadata1$genre[matching_index] <- ifelse(length(matching_index) > 0, genre, NA)
+  }
+}
+```
+
 
