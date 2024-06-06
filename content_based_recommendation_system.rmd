@@ -1,0 +1,77 @@
+```{r}
+load("~/shared/minor2_2023/data/project/metadata_g_7.RData")
+names(metadata)
+load("~/shared/minor2_2023/data/project/ratings_g_7.RData")
+names(ratings)
+```
+
+
+```{r}
+
+metadata_sep <- metadata %>% separate_rows(starring, sep = ", ")
+
+metadata_sep <- metadata_sep %>%
+  mutate(actors_v = 1)
+metadata <- metadata %>%
+  mutate(directedBy_v = 1)
+
+metadata_sep = metadata_sep %>% rename(actors_sep = starring) %>% filter(actors_sep != "")
+
+data = metadata_sep %>% pivot_wider(names_from = actors_sep, values_from = actors_v, values_fill = 0)
+
+data_dirs = metadata %>%
+  separate_rows(directedBy, sep = ", ") %>%
+  rename(directed_sep = directedBy) %>%
+  filter(directed_sep != "")
+
+data_dirs = data_dirs %>% pivot_wider(names_from = directed_sep, values_from = directedBy_v, values_fill = 0)
+
+data_dirs = data_dirs %>% dplyr::select(-avgRating, -starring, -title, -imdbId)
+data = data %>% dplyr::select(-directedBy, -avgRating)
+
+data = inner_join(data, data_dirs, by='item_id')
+```
+
+
+```{r}
+data = data %>% dplyr::select(-title, -imdbId)
+rownames = data$item_id
+data = data %>% dplyr::select(-item_id)
+rownames(data) = rownames
+sim = lsa::cosine(t(as.matrix(data)))
+diag(sim) = 0
+```
+
+ 
+
+```{r}
+contentBasedRecommendation <- function(name, genre='', mood='', count=3) {
+  if (any(metadata$title == name) == FALSE) {
+    print('Нет фильмов с таким названием.')
+    similar_name_search = subset(metadata, grepl(name, title, ignore.case=TRUE))$title
+    if (length(similar_name_search) > 0) {
+      print('Возможно вы имели в виду:')
+      cat(subset(metadata, grepl(name, title, ignore.case=TRUE))$title, sep = "\n")
+    } else {
+        print('Не удалось найти фильмы с похожим названием')
+    }
+    return()
+  }
+  
+  input_movie = subset(metadata, title == name)$item_id
+
+  mostSimilar = head(sort(sim[,as.character(input_movie)], decreasing = T), n = count)
+  
+  
+  mostSimilar = data.frame(similar = mostSimilar)
+  mostSimilar$item_id = as.numeric(rownames(mostSimilar))
+
+  mostSimilar = mostSimilar %>% left_join(metadata) %>% select(item_id, title, similar) %>% arrange(-similar)
+  
+  mostSimilar
+}
+```
+
+```{r}
+contentBasedRecommendation("Men in Black III (M.III.B.) (M.I.B.³) (2012)", count=10)
+```
