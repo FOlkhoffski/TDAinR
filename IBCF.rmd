@@ -1,0 +1,128 @@
+---
+title: "CF"
+author: "Ольховский Феликс"
+date: "2024-06-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## коллаборативная фильтрация основанная на фильмах (ICBF)
+
+```{r message = FALSE}
+library(tidyverse)
+```
+
+Загрузим данные и посмотрим на название фильмов:
+```{r}
+load("~/shared/minor2_2023/data/project/ratings_g_7.RData")
+names(ratings)
+```
+Глянем число выставленных оценок
+```{r}
+nrow(ratings)
+```
+
+
+Посмотрим на пользователей, как оценивали:
+```{r}
+counts = ratings %>% count(user_id) 
+counts %>% top_n(5, n) %>% arrange(-n)
+```
+
+Самое большое число оценок - 60, самое меньшее - 6
+
+
+Посмотрим на табличку:
+```{r}
+library(tidyr)
+rates = pivot_wider(ratings, names_from = item_id, values_from = rating)
+head(rates)
+```
+
+
+делитнем айдишники пользователей
+```{r}
+userNames = rates$user_id
+rates = select(rates, -user_id)
+```
+
+
+Подключим библиотеку и начнём фигачить
+```{r}
+library(recommenderlab)
+# преобразование таблицы данных в матрицу
+rates = as.matrix(rates)
+rownames(rates) = userNames
+# преобразование матрицы в realRatingMatrix
+r = as(rates, "realRatingMatrix", strict = T)
+r
+```
+
+```{r}
+similarity_films10 <- similarity(r, method = "cosine", which = "items")
+as.matrix(similarity_films10)
+max(similarity_films10)
+```
+
+
+```{r}
+ggplot(data = data.frame(filmRate=colCounts(r))) + geom_histogram(aes(x=filmRate))
+ggplot(data = data.frame(userRate=rowCounts(r))) + geom_histogram(aes(x=userRate))
+```
+
+
+
+```{r}
+ratings_movies <- r[rowCounts(r) > 5, colCounts(r) > 10] 
+ratings_movies
+rownames(ratings_movies)
+```
+
+```{r}
+average_ratings_per_user <- rowMeans(ratings_movies)
+ggplot()+geom_histogram(aes(x=average_ratings_per_user)) +
+ggtitle("Распределение средних оценок пользователей")
+```
+
+Посмотрели на пользователей, теперь приступим к методу
+
+\
+
+Коллаборативная фильтрация:
+
+```{r}
+set.seed(100)
+test_ind <- sample(1:nrow(ratings_movies), size = nrow(ratings_movies)*0.2)
+recc_data_train <- ratings_movies[-test_ind, ]
+recc_data_test <- ratings_movies[test_ind, ]
+```
+
+
+Рекомендательная модель:
+```{r}
+recc_model <- Recommender(data = recc_data_train, method = "IBCF")
+recc_model
+```
+
+
+Матрица схожести фильмов
+```{r}
+model_details <- getModel(recc_model)
+model_details$description
+model_details$sim[1:10, 1:10]
+```
+
+
+Теперь проведём тест, предскажем по 6 фильмов для каждого пользователя
+```{r}
+recc_predicted <- predict(object = recc_model, newdata = recc_data_test, n = 6)
+recc_predicted
+```
+
+```{r}
+str(recc_predicted)
+```
