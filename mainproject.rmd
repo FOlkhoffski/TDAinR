@@ -145,21 +145,21 @@ tags_nrc = tags_mean1 %>%
   inner_join(nrc_dict, by= c("lemtag" = "word"))
 ```
 
-Загружаем датасет Imdb, в котором есть часть наших фильмов (в итоге их оказалось 105), чтобы получить жанры
+Загружаем датасет Imdb, в котором есть часть наших фильмов (в итоге их оказалось 372), чтобы получить жанры
 
 ```{r}
-data_path = "~/imdb_top_1000.csv"
-genres <- read.csv(data_path)
-genres = genres %>% select(Series_Title, Genre)
-genres <- rename(genres, title = Series_Title)
+movies = "~/movies.csv"
 
-#избавляемся от лишних знаков в названиях, чтобы понятно всё соотносилось
+genres <- read.csv(movies)
+genres = genres %>% select(name, genre)
+genres <- rename(genres, title = name)
+
 regex <- "\\(.*\\)"
 new_titles <- gsub(regex, "", metadata1$title)
 metadata1$title <- gsub("\\(.*\\)", "", new_titles)
 metadata1$title <- str_trim(metadata1$title) 
 
-# создадим новый столбец 'genre' в 'metadata1'
+# создадим новый столбец 'genre' в 'metadata'
 metadata1$genre <- NA
 
 # пройдемся по каждому названию фильма в 'genres'
@@ -173,12 +173,11 @@ for (i in 1:nrow(genres)) {
     matching_index <- which(metadata1$title == current_title)
 
     # получим жанр фильма из 'genres'
-    genre <- genres$Genre[i]
+    genre <- genres$genre[i]
 
     # добавим жанр в 'metadata1' с помощью ifelse()
     metadata1$genre[matching_index] <- ifelse(length(matching_index) > 0, genre, NA)
   }
 }
 ```
-
 
