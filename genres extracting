@@ -1,0 +1,33 @@
+```{r}
+movies = "~/movies.csv"
+
+genres3 <- read.csv(movies)
+genres3 = genres3 %>% select(name, genre)
+genres3 <- rename(genres3, title = name)
+
+regex <- "\\(.*\\)"
+new_titles <- gsub(regex, "", metadata1$title)
+metadata1$title <- gsub("\\(.*\\)", "", new_titles)
+metadata1$title <- str_trim(metadata1$title) 
+
+# Создадим новый столбец 'genre' в 'metadata'
+metadata1$genre <- NA
+
+# Пройдемся по каждому названию фильма в 'genres'
+for (i in 1:nrow(genres3)) {
+  # Получим текущее название фильма из 'genres'
+  current_title <- genres3$title[i]
+
+  # Проверим, есть ли это название в 'metadata1'
+  if (any(metadata1$title == current_title)) {
+    # Получим индекс совпадающего фильма в 'metadata1'
+    matching_index <- which(metadata1$title == current_title)
+
+    # Получим жанр фильма из 'genres'
+    genre <- genres3$genre[i]
+
+    # Добавим жанр в 'metadata1' с помощью ifelse()
+    metadata1$genre[matching_index] <- ifelse(length(matching_index) > 0, genre, NA)
+  }
+}
+```
