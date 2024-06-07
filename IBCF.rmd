@@ -129,30 +129,20 @@ str(recc_predicted)
 
 
 ```{r}
-recommend_movies_ibcf <- function(ratings_data, user_id, seed = 100, test_size = 0.2, n_recommendations = 6) {
-  set.seed(seed)
-  test_ind <- sample(1:nrow(ratings_data), size = nrow(ratings_data) * test_size)
-  recc_data_train <- ratings_data[-test_ind, ]
-  recc_data_test <- ratings_data[test_ind, ]
-  
-  # Сама модель
-  recc_model <- Recommender(data = recc_data_train, method = "IBCF")
-  
-  # Матрица схожести:
-  model_details <- getModel(recc_model)
-  print(model_details$description)
-  print(model_details$sim[1:10, 1:10])
-  
-  # Проверяем, что пользователь в тестовых данных
-  if (user_id %in% test_ind) {
-    # Делаем предсказания для тестовых данных
-    recc_predicted <- predict(object = recc_model, newdata = recc_data_test, n = n_recommendations)
-    
-    # Возвращаем рекомендации для конкретного пользователя
-    return(as(recc_predicted, "list")[[which(test_ind == user_id)]])
-  } else {
-    stop("Пользователь не найден в тестовой выборке")
-  }
-}
+get_recommendations <- function(user_ratings) {
+  # Пусть user_ratings - это вектор оценок фильмов, поставленных пользователем, где имена элементов - это ID фильмов.
 
+  user_ratings_matrix <- matrix(NA, nrow = 1, ncol = length(movie_ids))
+  colnames(user_ratings_matrix) <- movie_ids
+  
+  # Заполним матрицу оценок пользователя
+  user_ratings_matrix[1, names(user_ratings)] <- user_ratings
+  
+  user_ratings_matrix <- as(user_ratings_matrix, "realRatingMatrix")
+  
+  # Создание рекомендаций
+  recommendations <- predict(object = recc_model, newdata = user_ratings_matrix, n = 6)
+  recommended_items <- as(recommendations, "list")
+
+  return(recommended_items[[1]])
 ```
