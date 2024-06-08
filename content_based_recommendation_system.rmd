@@ -6,81 +6,11 @@ names(ratings)
 ```
 
 ```{r}
-metadata1 <- metadata
+metadata_net = "~/project_personal_files/metadata1_net_new.csv"
 
-# вектор для хранения извлеченного года
-years <- vector("character", length = nrow(metadata1))
-
-# циклом проходимся и получаем год для каждого фильма, сохраняем в вектор
-for (i in 1:nrow(metadata1)) {
-  title <- metadata1$title[i]
-  # задаем шаблон, по которому собираемся искать (который у нас и представлен)
-  year_pattern <- "\\(\\d{4}\\)$"
-  year_match <- str_match(title, year_pattern)
-
-  if (!is.na(year_match)) {
-    # извлекаем год и завершающие символы
-    year_text <- year_match[[1]]
-    trailing_chars <- year_match[[1]]
-
-    # удаляем скобочки и завершающие символы
-    years[i] <- gsub("(\\(|\\))", "", year_text)
-
-    # проверка на то, что в завершающих символах только пробелы
-    if (!all(str_trim(trailing_chars) == "")) {
-      # если нет, то убираем лишнее
-      years[i] <- paste0(years[i])
-    }
-  } else {
-    years[i] <- NA # если не удалось излечь год, присваиваем NA
-  }
-}
-
-# добавление получившегося вектора в столбец
-metadata1$year <- years
+metadata <- read.csv(metadata_net)
+metadata = metadata %>% drop_na(genre) %>% dplyr::select(-company, -writer, -country, -star)
 ```
-
-```{r}
-movies = "~/movies.csv"
-
-genres <- read.csv(movies)
-genres = genres %>% select(name, genre)
-genres <- rename(genres, title = name)
-
-regex <- "\\(.*\\)"
-new_titles <- gsub(regex, "", metadata1$title)
-metadata1$title <- gsub("\\(.*\\)", "", new_titles)
-metadata1$title <- str_trim(metadata1$title) 
-
-# создадим новый столбец 'genre' в 'metadata'
-metadata1$genre <- NA
-
-
-# пройдемся по каждому названию фильма в 'genres'
-for (i in 1:nrow(genres)) {
-  # получим текущее название фильма из 'genres'
-  current_title <- genres$title[i]
-
-  # проверим, есть ли это название в 'metadata1'
-  if (any(toupper(metadata1$title) == toupper(current_title))) {
-    # получим индекс совпадающего фильма в 'metadata1'
-    matching_index <- which(toupper(metadata1$title) == toupper(current_title))
-
-    # получим жанр фильма из 'genres'
-    genre <- genres$genre[i]
-
-    # добавим жанр в 'metadata1' с помощью ifelse()
-    metadata1$genre[matching_index] <- ifelse(length(matching_index) > 0, genre, NA)
-  }
-}
-```
-
-
-```{r}
-metadata = metadata1 %>% drop_na(genre)
-```
-
-
 
 
 ```{r}
@@ -119,11 +49,6 @@ data = inner_join(data, data_genres, by='item_id')
 
 
 ```{r}
-print(n_distinct(metadata$genre))
-```
-
-
-```{r}
 data$year <- as.numeric(data$year)
 data = data %>% dplyr::select(-title, -imdbId, -genre, -year)
 rownames = data$item_id
@@ -133,37 +58,53 @@ sim = lsa::cosine(t(as.matrix(data)))
 diag(sim) = 0
 ```
 
- 
+```{r}
+available_genres = unique(metadata$genre)
+print(unique(metadata$genre))
+```
 
 ```{r}
-contentBasedRecommendation <- function(name, count=3) {
+contentBasedRecommendation <- function(name, genre='', count=3) {
   if (any(metadata$title == name) == FALSE) {
     print('Нет фильмов с таким названием.')
     similar_name_search = subset(metadata, grepl(name, title, ignore.case=TRUE))$title
     if (length(similar_name_search) > 0) {
       print('Возможно вы имели в виду:')
       cat(subset(metadata, grepl(name, title, ignore.case=TRUE))$title, sep = "\n")
-    } else {
-        print('Не удалось найти фильмы с похожим названием')
     }
     return()
   }
   
-  input_movie = subset(metadata, title == name)$item_id
-
-  mostSimilar = head(sort(sim[,as.character(input_movie)], decreasing = T), n = count)
+  cur_metadata = metadata
   
+  input_movie = subset(metadata, title == name)$item_id
+  
+  if (genre != '') {
+    if (!(genre %in% available_genres)) {
+      print("Такого жанра нет")
+      return()
+    }
+  }
+  
+  # mostSimilar = head(sort(sim[,as.character(input_movie)], decreasing = T), n = count)
+  mostSimilar = sort(sim[,as.character(input_movie)], decreasing = T)
   
   mostSimilar = data.frame(similar = mostSimilar)
   mostSimilar$item_id = as.numeric(rownames(mostSimilar))
-
-  mostSimilar = mostSimilar %>% left_join(metadata) %>% select(item_id, title, similar) %>% arrange(-similar)
   
-  mostSimilar
+  if (genre != '') {
+    cur_genre = genre
+    mostSimilar = mostSimilar %>% left_join(metadata) %>% select(item_id, title, similar, genre, year) %>% arrange(-similar) %>% filter(genre == cur_genre)
+  
+  } else {
+    mostSimilar = mostSimilar %>% left_join(metadata) %>% select(item_id, title, similar, genre, year) %>% arrange(-similar)
+  }
+  
+  head(mostSimilar, n = count)
 }
 ```
 
 ```{r}
-contentBasedRecommendation("Skyfall", count=10)
+contentBasedRecommendation("Skyfall", genre='Comedy', count=10)
 ```
 
