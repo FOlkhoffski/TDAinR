@@ -5,6 +5,83 @@ load("~/shared/minor2_2023/data/project/ratings_g_7.RData")
 names(ratings)
 ```
 
+```{r}
+metadata1 <- metadata
+
+# вектор для хранения извлеченного года
+years <- vector("character", length = nrow(metadata1))
+
+# циклом проходимся и получаем год для каждого фильма, сохраняем в вектор
+for (i in 1:nrow(metadata1)) {
+  title <- metadata1$title[i]
+  # задаем шаблон, по которому собираемся искать (который у нас и представлен)
+  year_pattern <- "\\(\\d{4}\\)$"
+  year_match <- str_match(title, year_pattern)
+
+  if (!is.na(year_match)) {
+    # извлекаем год и завершающие символы
+    year_text <- year_match[[1]]
+    trailing_chars <- year_match[[1]]
+
+    # удаляем скобочки и завершающие символы
+    years[i] <- gsub("(\\(|\\))", "", year_text)
+
+    # проверка на то, что в завершающих символах только пробелы
+    if (!all(str_trim(trailing_chars) == "")) {
+      # если нет, то убираем лишнее
+      years[i] <- paste0(years[i])
+    }
+  } else {
+    years[i] <- NA # если не удалось излечь год, присваиваем NA
+  }
+}
+
+# добавление получившегося вектора в столбец
+metadata1$year <- years
+```
+
+```{r}
+movies = "~/movies.csv"
+
+genres <- read.csv(movies)
+genres = genres %>% select(name, genre)
+genres <- rename(genres, title = name)
+
+regex <- "\\(.*\\)"
+new_titles <- gsub(regex, "", metadata1$title)
+metadata1$title <- gsub("\\(.*\\)", "", new_titles)
+metadata1$title <- str_trim(metadata1$title) 
+
+# создадим новый столбец 'genre' в 'metadata'
+metadata1$genre <- NA
+
+
+# пройдемся по каждому названию фильма в 'genres'
+for (i in 1:nrow(genres)) {
+  # получим текущее название фильма из 'genres'
+  current_title <- genres$title[i]
+
+  # проверим, есть ли это название в 'metadata1'
+  if (any(toupper(metadata1$title) == toupper(current_title))) {
+    # получим индекс совпадающего фильма в 'metadata1'
+    matching_index <- which(toupper(metadata1$title) == toupper(current_title))
+
+    # получим жанр фильма из 'genres'
+    genre <- genres$genre[i]
+
+    # добавим жанр в 'metadata1' с помощью ifelse()
+    metadata1$genre[matching_index] <- ifelse(length(matching_index) > 0, genre, NA)
+  }
+}
+```
+
+
+```{r}
+metadata = metadata1 %>% drop_na(genre)
+```
+
+
+
 
 ```{r}
 
@@ -14,10 +91,14 @@ metadata_sep <- metadata_sep %>%
   mutate(actors_v = 1)
 metadata <- metadata %>%
   mutate(directedBy_v = 1)
+metadata <- metadata %>%
+  mutate(genre_v = 1)
 
 metadata_sep = metadata_sep %>% rename(actors_sep = starring) %>% filter(actors_sep != "")
 
 data = metadata_sep %>% pivot_wider(names_from = actors_sep, values_from = actors_v, values_fill = 0)
+
+data_genres = metadata %>% pivot_wider(names_from = genre, values_from = genre_v, values_fill = 0)
 
 data_dirs = metadata %>%
   separate_rows(directedBy, sep = ", ") %>%
@@ -25,16 +106,26 @@ data_dirs = metadata %>%
   filter(directed_sep != "")
 
 data_dirs = data_dirs %>% pivot_wider(names_from = directed_sep, values_from = directedBy_v, values_fill = 0)
+```
 
-data_dirs = data_dirs %>% dplyr::select(-avgRating, -starring, -title, -imdbId)
-data = data %>% dplyr::select(-directedBy, -avgRating) # здесь можно убрать -avgRating чтобы он использовался в построении матрицы
-
+```{r}
+data_dirs = data_dirs %>% dplyr::select(-avgRating, -starring, -title, -imdbId, -year, -genre, -genre_v)
+data_genres = data_genres %>% dplyr::select(-avgRating, -starring, -title, -imdbId, -year, -directedBy_v, -directedBy)
+# data = data %>% dplyr::select(-directedBy)
+data = data %>% dplyr::select(-directedBy, -avgRating)
 data = inner_join(data, data_dirs, by='item_id')
+data = inner_join(data, data_genres, by='item_id')
 ```
 
 
 ```{r}
-data = data %>% dplyr::select(-title, -imdbId)
+print(n_distinct(metadata$genre))
+```
+
+
+```{r}
+data$year <- as.numeric(data$year)
+data = data %>% dplyr::select(-title, -imdbId, -genre, -year)
 rownames = data$item_id
 data = data %>% dplyr::select(-item_id)
 rownames(data) = rownames
@@ -45,7 +136,7 @@ diag(sim) = 0
  
 
 ```{r}
-contentBasedRecommendation <- function(name, genre='', mood='', count=3) {
+contentBasedRecommendation <- function(name, count=3) {
   if (any(metadata$title == name) == FALSE) {
     print('Нет фильмов с таким названием.')
     similar_name_search = subset(metadata, grepl(name, title, ignore.case=TRUE))$title
@@ -73,5 +164,6 @@ contentBasedRecommendation <- function(name, genre='', mood='', count=3) {
 ```
 
 ```{r}
-contentBasedRecommendation("Men in Black III (M.III.B.) (M.I.B.³) (2012)", count=10)
+contentBasedRecommendation("Skyfall", count=10)
 ```
+
