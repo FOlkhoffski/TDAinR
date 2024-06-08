@@ -139,19 +139,18 @@ add_empty_row <- function(matrix) {
 ```
 
 ```{r}
-user_ratings_matrix = recc_predicted
+user_ratings_matrix = recc_data_test
 get_recommendations <- function(userID, filmsID, ratings) {
   #userID - номер пользователя, filmsID - вектор ID фильмов, ratings - оценки фильмов
-  add_empty_row(recc_data_test)
-  colnames(recc_data_test[-1]) <- userID
-  for (i in seq_along(colnames(recc_data_test))){
+  add_empty_row(user_ratings_matrix)
+  colnames(user_ratings_matrix[-1]) <- userID
+  for (i in seq_along(colnames(user_ratings_matrix))){
     for (k in seq_along(filmsID)){
-      if (conames(user_ratings[-1,i]) == filmsID[k]) {
-        user_rating[-1,i] <- ratings[k]
+      if (conames(user_ratings_matrix[-1,i]) == filmsID[k]) {
+        user_ratings_matrix[-1,i] <- ratings[k]
       }
     }
   }
-  user_ratings_realmatrix = recc_data_test
   
   recommendations <- predict(object = recc_model, newdata = user_ratings_matrix, n = 6)
   recc_user <- recommendations@items[[-1]]
