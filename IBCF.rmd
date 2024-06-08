@@ -129,6 +129,16 @@ str(recc_predicted)
 
 
 ```{r}
+add_empty_row <- function(matrix) {
+  empty_row <- matrix(NA, nrow = 1, ncol = ncol(matrix))
+  colnames(empty_row) <- colnames(matrix)
+  updated_matrix <- rbind(matrix, empty_row)
+  
+  return(updated_matrix)
+}
+```
+
+```{r}
 user_ratings_matrix = recc_predicted
 get_recommendations <- function(userID, filmsID, ratings) {
   #userID - номер пользователя, filmsID - вектор ID фильмов, ratings - оценки фильмов
