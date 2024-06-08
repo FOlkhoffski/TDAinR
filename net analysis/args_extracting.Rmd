@@ -1,0 +1,55 @@
+```{r}
+movies = "~/project/movies.csv"
+
+load("~/shared/minor2_2023/data/project/metadata_g_7.RData")
+metadata1 = metadata
+
+genres3 <- read.csv(movies)
+genres3 = genres3 %>% select(name, genre, star, writer, country, company, year)
+genres3 <- rename(genres3, title = name)
+
+regex <- "\\(.*\\)"
+new_titles <- gsub(regex, "", metadata1$title)
+metadata1$title <- gsub("\\(.*\\)", "", new_titles)
+metadata1$title <- str_trim(metadata1$title) 
+
+# Создадим новый столбец 'genre' и 'star' в 'metadata1'
+metadata1$genre <- NA
+metadata1$star <- NA
+metadata1$writer <- NA
+metadata1$company <- NA
+metadata1$country <- NA
+metadata1$year <- NA
+
+
+# Пройдемся по каждому названию фильма в 'genres'
+for (i in 1:nrow(genres3)) {
+  # Получим текущее название фильма из 'genres'
+  current_title <- genres3$title[i]
+
+  # Проверим, есть ли это название в 'metadata1'
+  if (any(metadata1$title == current_title)) {
+    # Получим индекс совпадающего фильма в 'metadata1'
+    matching_index <- which(metadata1$title == current_title)
+
+    # Получим нужные параметры фильма из 'genres'
+    genre <- genres3$genre[i]
+    star = genres3$star[i]
+    writer <- genres3$writer[i]
+    country = genres3$country[i]
+    company = genres3$company[i]
+    year = genres3$year[i]
+
+    # Добавим жанр в 'metadata1' с помощью ifelse()
+    metadata1$genre[matching_index] <- ifelse(length(matching_index) > 0, genre, NA)
+    metadata1$star[matching_index] <- ifelse(length(matching_index) > 0, star, NA)
+    metadata1$company[matching_index] <- ifelse(length(matching_index) > 0, company, NA)
+    metadata1$country[matching_index] <- ifelse(length(matching_index) > 0, country, NA)
+    metadata1$writer[matching_index] <- ifelse(length(matching_index) > 0, writer, NA)
+    metadata1$year[matching_index] <- ifelse(length(matching_index) > 0, year, NA)
+  }
+}
+
+write.csv(metadata1, "~/project/metadata1.csv", row.names = FALSE)
+
+```

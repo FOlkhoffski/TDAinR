@@ -1,0 +1,57 @@
+```{r}
+# Загрузка библиотек
+library(igraph)
+library(dplyr)
+library(tidyverse)
+library(visNetwork)
+
+metadata1 = "~/project/metadata1.csv"
+net_data = read.csv(metadata1)
+
+# Создание матрицы смежности
+adj_matrix = matrix(0, nrow = length(net_data$title), ncol = length(net_data$title))
+rownames(adj_matrix) = net_data$title
+colnames(adj_matrix) = net_data$title
+
+# Заполнение матрицы смежности на основе общих параметров
+for (i in 1:(length(net_data$title) - 1)) {
+  for (j in (i + 1):length(net_data$title)) {
+    
+    #Обработка случаев, когда один из параметров NA
+    if (is.na(net_data$directedBy[i]) || is.na(net_data$directedBy[j])) drctr = 0 else drctr = net_data$directedBy[i] == net_data$directedBy[j]
+    
+    if (is.na(net_data$company[i]) || is.na(net_data$company[j])) cmpn = 0 else cmpn = net_data$company[i] == net_data$company[j]
+    
+    if (is.na(net_data$genre[i]) || is.na(net_data$genre[j])) gnr = 0 else gnr = net_data$genre[i] == net_data$genre[j]
+    
+    if (is.na(net_data$country[i]) || is.na(net_data$country[j])) cntr = 0 else cntr = net_data$country[i] == net_data$country[j]
+    
+    if (is.na(net_data$star[i]) || is.na(net_data$star[j])) str = 0 else str = net_data$star[i] == net_data$star[j]
+        
+    if (is.na(net_data$writer[i]) || is.na(net_data$writer[j]))   wrtr = 0 else wrtr = net_data$writer[i] == net_data$writer[j]
+    
+    #Формула для определения "похожести" фильмов 
+    common = 5 * (str + gnr) + 2 * (drctr + wrtr) + 0.5 * (cmpn + cntr)
+    
+    adj_matrix[i, j] = common
+    adj_matrix[j, i] = common
+  }
+}
+
+# Преобразование матрицы смежности в граф
+g = graph_from_adjacency_matrix(adj_matrix, mode = "undirected", weighted = TRUE)
+
+clusters = cluster_walktrap(g)
+
+# Получение кластеров для каждого узла
+membership = membership(clusters)
+
+net_data$group = membership
+
+#Добавление кластера для каждого фильма в исходный датасет
+metadata1_net = net_data
+
+#сохранение полученного датасета в файл metadata1_net
+write.csv(metadata1_net, "~/project/metadata1_net.csv", row.names = FALSE) 
+```
+
