@@ -129,15 +129,16 @@ str(recc_predicted)
 
 
 ```{r}
+user_ratings_matrix = recc_predicted
 get_recommendations <- function(user_ratings) {
   # user_ratings - это вектор оценок фильмов, поставленных пользователем, где имена элементов - это ID фильмов.
 
-  user_ratings_matrix <- as(user_ratings, "realRatingMatrix")
-  
+  user_ratings_matrix <- rbind(user_ratings)
+  user_ratings_realmatrix = as(user_ratings_matrix, "realRatingMatrix", strict = T) 
   
   recommendations <- predict(object = recc_model, newdata = user_ratings_matrix, n = 6)
-
-  recommended_items <- as(recommendations, "list")
-  return(recommended_items[[1]])
+  recc_user <- recommendations@items[[-1]]
+  movies_user <- recommendations@itemLabels[recc_user]
+  return(movies_user)
 }
 ```
