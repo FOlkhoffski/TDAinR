@@ -127,29 +127,30 @@ recc_predicted
 str(recc_predicted)
 ```
 
-
+Функция чтобы добавить последнюю строку для другой функции
 ```{r}
-add_empty_row <- function(matrix) {
-  empty_row <- matrix(NA, nrow = 1, ncol = ncol(matrix))
-  colnames(empty_row) <- colnames(matrix)
-  updated_matrix <- rbind(matrix, empty_row)
+fill_last_row <- function(rates, userID, ratings) {
+  last_row_index <- nrow(rates)
+
+  for (i in seq_along(userID)) {
+    column_name <- userID[i]
+    rating_value <- ratings[i]
+    
+    if (column_name %in% colnames(rates)) {
+      column_index <- which(colnames(rates) == column_name)
+      rates[last_row_index, column_index] <- rating_value
+    }
+  }
   
-  return(updated_matrix)
+  return(rates)
 }
 ```
 
+Рекомендательная функция
 ```{r}
 get_recommendations <- function(userID, filmsID, ratings) {
-  #userID - номер пользователя, filmsID - вектор ID фильмов, ratings - оценки фильмов
-  add_empty_row(rates)
-  colnames(rates[-1]) <- userID
-  for (i in seq_along(colnames(rates))){
-    for (k in seq_along(filmsID)){
-      if (conames(rates[-1,i]) == filmsID[k]) {
-        rates[-1,i] <- ratings[k]
-      }
-    }
-  }
+  rates[userID, ] <- NA
+  rates <- fill_last_row(rates, userID, ratings)
   user_ratings_matrix <- as(rates, "realRatingMatrix", strict = T)
   recommendations <- predict(object = recc_model, newdata = user_ratings_matrix, n = 6)
   recc_user <- recommendations@items[[-1]]
