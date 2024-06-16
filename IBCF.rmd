@@ -168,8 +168,8 @@ get_recommendations <- function(userID, filmsID, ratings) {
     recc_user <- recommendations@items[[userID]]
     movies_user <- recommendations@itemLabels[recc_user]
   }
-  
-  return(movies_user)
+  names_movies_user <- movies$title[match(movies_user, movies$movieId)]
+  return(names_movies_user)
 }
 ```
 
