@@ -169,7 +169,7 @@ get_recommendations <- function(userID, filmsID, ratings) {
     movies_user <- recommendations@itemLabels[recc_user]
   }
   
-  return(recc_user)
+  return(movies_user)
 }
 ```
 
