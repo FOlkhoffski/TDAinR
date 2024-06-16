@@ -146,14 +146,25 @@ fill_last_row <- function(rates, userID, ratings) {
 }
 ```
 
+Сохраним ID пользователей, чтоб искать удобнее было
+```{r}
+names(recc_predicted@items) = rownames(recc_data_test)
+```
+
 Рекомендательная функция
 ```{r}
+names(recc_predicted@items) = rownames(recc_data_test)
 get_recommendations <- function(userID, filmsID, ratings) {
-  rates[userID, ] <- NA
-  rates <- fill_last_row(rates, userID, ratings)
-  user_ratings_matrix <- as(rates, "realRatingMatrix", strict = T)
-  recommendations <- predict(object = recc_model, newdata = user_ratings_matrix, n = 6)
-  recc_user <- recommendations@items[[nrow(reccomendations]]
+  if (userID %in% rownames(rates)){
+    recc_user <- recommendations@items[[userID]]
+  }
+  else{
+    rates[userID, ] <- NA
+    rates <- fill_last_row(rates, userID, ratings)
+    user_ratings_matrix <- as(rates, "realRatingMatrix", strict = T)
+    recommendations <- predict(object = recc_model, newdata = user_ratings_matrix, n = 6)
+    recc_user <- recommendations@items[[nrow(reccomendations)]]
+  }
   movies_user <- recommendations@itemLabels[recc_user]
   return(movies_user)
 }
