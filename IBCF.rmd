@@ -144,28 +144,42 @@ fill_last_row <- function(rates, userID, ratings) {
   
   return(rates)
 }
-```
+```     
 
 Сохраним ID пользователей, чтоб искать удобнее было
 ```{r}
-names(recc_predicted@items) = rownames(recc_data_test)
+names(recc_predicted@items) = rownames(ratings_movies)
 ```
 
 Рекомендательная функция
 ```{r}
-names(recc_predicted@items) = rownames(recc_data_test)
 get_recommendations <- function(userID, filmsID, ratings) {
   if (userID %in% rownames(rates)){
-    recc_user <- recommendations@items[[userID]]
+    recc_user <- recc_predicted@items[[userID]]
+    movies_user <- recc_predicted@itemLabels[recc_user]
   }
-  else{
-    rates[userID, ] <- NA
-    rates <- fill_last_row(rates, userID, ratings)
+  else {
+    rates <- rbind(rates, rep(NA, ncol(rates)))
+    rownames(rates)[nrow(rates)] <- userID
+    rates <- fill_last_row(rates, filmsID, ratings)
     user_ratings_matrix <- as(rates, "realRatingMatrix", strict = T)
     recommendations <- predict(object = recc_model, newdata = user_ratings_matrix, n = 6)
-    recc_user <- recommendations@items[[nrow(reccomendations)]]
+    
+    recc_user <- recommendations@items[[userID]]
+    movies_user <- recommendations@itemLabels[recc_user]
   }
-  movies_user <- recommendations@itemLabels[recc_user]
-  return(movies_user)
+  
+  return(recc_user)
 }
+```
+
+```{r}
+for_ibcf = ratings %>% filter(user_id == "138823") #отфильтровываем данные по одному пользователю из таблицы с оценками фильмов
+filmsID_vec = for_ibcf  %>% select(item_id) %>% pull() #создаем вектор с id фильмов
+ratings_vector = for_ibcf  %>% select(rating) %>% pull() #создаем вектор с оценками фильмов
+```
+
+```{r}
+get_recommendations("138823", filmsID_vec, ratings_vector)
+recc_predicted@items[["138823"]]
 ```
