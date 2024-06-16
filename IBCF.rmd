@@ -119,7 +119,7 @@ model_details$sim[1:10, 1:10]
 
 Теперь проведём тест, предскажем по 6 фильмов для каждого пользователя
 ```{r}
-recc_predicted <- predict(object = recc_model, newdata = recc_data_test, n = 6)
+recc_predicted <- predict(object = recc_model, newdata = ratings_movies, n = 6)
 recc_predicted
 ```
 
