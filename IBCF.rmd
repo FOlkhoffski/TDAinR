@@ -153,7 +153,7 @@ get_recommendations <- function(userID, filmsID, ratings) {
   rates <- fill_last_row(rates, userID, ratings)
   user_ratings_matrix <- as(rates, "realRatingMatrix", strict = T)
   recommendations <- predict(object = recc_model, newdata = user_ratings_matrix, n = 6)
-  recc_user <- recommendations@items[[-1]]
+  recc_user <- recommendations@items[[nrow(reccomendations]]
   movies_user <- recommendations@itemLabels[recc_user]
   return(movies_user)
 }
