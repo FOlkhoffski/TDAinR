@@ -1,0 +1,121 @@
+### Content-based рекомендация
+```{r}
+load("~/shared/minor2_2023/data/project/metadata_g_7.RData")
+names(metadata)
+load("~/shared/minor2_2023/data/project/ratings_g_7.RData")
+names(ratings)
+```
+
+```{r}
+metadata <- read.csv("metadata1_net.csv")
+metadata = metadata %>% drop_na(genre) %>% dplyr::select(-company, -writer, -country, -star)
+```
+
+Мы решили сделать content-based рекомендательную систему, в которой пользователь вводит
+название фильма, а система выдает ему похожие. Чтобы это реализовать, выберем
+интересующие нас характеристики для сравнения, и преобразуем их в числовые значения.
+Таким образом можно будет построить матрицу схожести, и на ее основе рекомендовать фильмы.
+
+Так как мы решили, что режиссеры и актеры могут помочь в определении схожести фильмов,
+то придется создать для каждого актера и режиссера столбец и заполнять его единицой
+в случае присутствия этого человека в фильме, и нулем в противном случае.
+
+```{r}
+
+metadata_sep <- metadata %>% separate_rows(starring, sep = ", ")
+
+metadata_sep <- metadata_sep %>%
+  mutate(actors_v = 1)
+metadata <- metadata %>%
+  mutate(directedBy_v = 1)
+metadata <- metadata %>%
+  mutate(genre_v = 1)
+
+metadata_sep = metadata_sep %>% rename(actors_sep = starring) %>% filter(actors_sep != "")
+
+data = metadata_sep %>% pivot_wider(names_from = actors_sep, values_from = actors_v, values_fill = 0)
+
+data_genres = metadata %>% pivot_wider(names_from = genre, values_from = genre_v, values_fill = 0)
+
+data_dirs = metadata %>%
+  separate_rows(directedBy, sep = ", ") %>%
+  rename(directed_sep = directedBy) %>%
+  filter(directed_sep != "")
+
+data_dirs = data_dirs %>% pivot_wider(names_from = directed_sep, values_from = directedBy_v, values_fill = 0)
+```
+
+```{r}
+data_dirs = data_dirs %>% dplyr::select(-avgRating, -starring, -title, -imdbId, -year, -genre, -genre_v)
+data_genres = data_genres %>% dplyr::select(-avgRating, -starring, -title, -imdbId, -year, -directedBy_v, -directedBy)
+# data = data %>% dplyr::select(-directedBy)
+data = data %>% dplyr::select(-directedBy, -avgRating)
+data = inner_join(data, data_dirs, by='item_id')
+data = inner_join(data, data_genres, by='item_id')
+```
+
+
+После создания нужных столбцов, считаем матрицу схожести фильмов. Сначала переводим id в названия строк, чтобы разница в id влияла на схожесть фильмов.
+```{r}
+data$year <- as.numeric(data$year)
+data = data %>% dplyr::select(-title, -imdbId, -genre, -year)
+rownames = data$item_id
+data = data %>% dplyr::select(-item_id)
+rownames(data) = rownames
+sim = lsa::cosine(t(as.matrix(data)))
+diag(sim) = 0
+```
+
+Теперь найдем жанры, чтобы добавить в функцию доступные.
+```{r}
+available_genres = unique(metadata$genre)
+print(unique(metadata$genre))
+```
+
+Сама функция принимает на вход название фильма, жанр и число рекомендаций.
+Внутри сначала идет проверка на наличие фильма в базе, и в противном
+случае пытается проверить, если пользователь ввел назвавние не до конца.
+
+При введении жанра также проверяется, есть ли такой жанр среди фильмов,
+и если есть, то использует его. Без ввведения жанра ввыводящиеся фильмы
+могут быть любого жанра.
+```{r}
+contentBasedRecommendation <- function(name, genre='', count=3) {
+  if (any(metadata$title == name) == FALSE) {
+    print('Нет фильмов с таким названием.')
+    similar_name_search = subset(metadata, grepl(name, title, ignore.case=TRUE))$title
+    if (length(similar_name_search) > 0) {
+      print('Возможно вы имели в виду:')
+      cat(subset(metadata, grepl(name, title, ignore.case=TRUE))$title, sep = "\n")
+    }
+    return()
+  }
+  
+  cur_metadata = metadata
+  
+  input_movie = subset(metadata, title == name)$item_id
+  
+  if (genre != '') {
+    if (!(genre %in% available_genres)) {
+      print("Такого жанра нет")
+      return()
+    }
+  }
+  
+  # mostSimilar = head(sort(sim[,as.character(input_movie)], decreasing = T), n = count)
+  mostSimilar = sort(sim[,as.character(input_movie)], decreasing = T)
+  
+  mostSimilar = data.frame(similar = mostSimilar)
+  mostSimilar$item_id = as.numeric(rownames(mostSimilar))
+  
+  if (genre != '') {
+    cur_genre = genre
+    mostSimilar = mostSimilar %>% left_join(metadata) %>% select(item_id, title, similar, genre, year) %>% arrange(-similar) %>% filter(genre == cur_genre)
+  
+  } else {
+    mostSimilar = mostSimilar %>% left_join(metadata) %>% select(item_id, title, similar, genre, year) %>% arrange(-similar)
+  }
+  
+  head(mostSimilar, n = count)
+}
+```
