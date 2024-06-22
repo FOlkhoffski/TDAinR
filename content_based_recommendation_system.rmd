@@ -108,3 +108,47 @@ contentBasedRecommendation <- function(name, genre='', count=3) {
 contentBasedRecommendation("Skyfall", genre='Comedy', count=10)
 ```
 
+Сценарий финального отчета:
+"Порекомендуйте методом CB что-нибудь пользователю, который высоко оценил самый низкооцененный фильм в данных"
+
+Для начала найдем пользователя, который высоко оценил самый низкооцененный фильм.
+Для этого нужно найти фильм с минимальной оценкой.
+
+```{r}
+
+mean_ratings <- ratings %>%
+  group_by(item_id) %>%
+  summarise(mean_rating = mean(rating))
+
+mean_ratings[which.min(mean_ratings$mean_rating),]
+```
+
+id найденного фильма - 519. Найдем его название:
+
+```{r}
+metadata %>% filter(item_id == 519)
+```
+
+Посмотрим, какие пользователи поставили ему наибольшие оценки:
+
+
+```{r}
+movie_519 <- ratings %>%
+  filter(item_id == 519) %>%
+  arrange(rating) %>%
+  tail(5)
+movie_519
+```
+
+Как мы видим, пользователь с id 131595 оценил этот фильм на 3.5 - наибольшая оценка.
+Посмотрим, какие фильмы он оценил.
+```{r}
+ratings %>% filter(user_id == 131595) %>% inner_join(metadata, by = 'item_id')
+```
+
+
+Из всех фильмов, которые оценил найденный нами пользователь, выше всего он оценил фильм "Ocean's Eleven". Порекомендуем похожие на него фильмы в том же жанре (Crime):
+
+```{r}
+contentBasedRecommendation("Ocean's Eleven", genre='Crime', count=5)
+```
